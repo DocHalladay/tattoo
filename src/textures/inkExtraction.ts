@@ -1,5 +1,6 @@
 /**
  * Converts reference photo pixels into tattoo ink on transparent background.
+ * Rejects infographic black backgrounds and skin; keeps linework + light wash only.
  */
 
 export function extractTattooInk(
@@ -21,33 +22,46 @@ export function extractTattooInk(
     const warmth = r - b;
     const chroma = Math.max(r, g, b) - Math.min(r, g, b);
 
-    // Warm skin tones from reference photos
+    // Infographic / studio black background (wrap board is on black)
+    const isBlackBg = lum < 48 || (r < 55 && g < 55 && b < 55 && chroma < 30);
+
+    // Warm skin in reference photos
     const isSkin =
-      lum > 105 &&
-      warmth > 8 &&
-      r > g * 0.92 &&
-      g > b * 0.85 &&
-      chroma < 75;
+      lum > 92 &&
+      warmth > 4 &&
+      r >= g * 0.85 &&
+      g >= b * 0.8 &&
+      chroma < 85;
 
-    // Paper / background from infographic
-    const isPaper = lum > 200 && chroma < 35;
+    // Beige parchment areas on story board
+    const isPaper = lum > 185 && chroma < 45 && warmth > -5;
 
-    if (isSkin || isPaper || lum > 215) {
+    // Highlights / empty space
+    const isHighlight = lum > 210;
+
+    if (isBlackBg || isSkin || isPaper || isHighlight) {
       d[i + 3] = 0;
       continue;
     }
 
-    // Keep ink — dark linework and grey shading
-    const ink = Math.min(255, Math.max(0, (175 - lum) * 3.2) * strength);
-    if (ink < 8) {
+    // Tattoo ink: dark lines + subtle grey wash only (not mid-tones)
+    let ink = 0;
+    if (lum < 75) {
+      ink = Math.min(255, (80 - lum) * 4.5);
+    } else if (lum < 115) {
+      ink = Math.min(90, (115 - lum) * 2.2);
+    }
+
+    ink *= strength;
+    if (ink < 12) {
       d[i + 3] = 0;
       continue;
     }
 
-    d[i] = 12;
-    d[i + 1] = 10;
-    d[i + 2] = 9;
-    d[i + 3] = ink;
+    d[i] = 14;
+    d[i + 1] = 11;
+    d[i + 2] = 10;
+    d[i + 3] = Math.min(255, Math.round(ink));
   }
 
   ctx.putImageData(imageData, x, y);
@@ -59,12 +73,12 @@ export function applyShadingToInk(
   h: number,
   mode: 'light' | 'heavy',
 ) {
-  if (mode === 'light') return;
   const imageData = ctx.getImageData(0, 0, w, h);
   const d = imageData.data;
+  const mult = mode === 'heavy' ? 1.4 : 0.85;
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] > 0) {
-      d[i + 3] = Math.min(255, d[i + 3] * 1.35);
+      d[i + 3] = Math.min(255, Math.round(d[i + 3] * mult));
     }
   }
   ctx.putImageData(imageData, 0, 0);

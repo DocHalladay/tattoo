@@ -10,13 +10,13 @@ export interface CropRect {
   h: number;
 }
 
-/** sleeve-wrap-board.png — middle row, 5 rotation views around the arm */
+/** sleeve-wrap-board.png — middle row, 5 rotation views (tight crops on arms only) */
 export const WRAP_ROTATION_VIEWS: CropRect[] = [
-  { x: 18, y: 318, w: 118, h: 268 },
-  { x: 142, y: 318, w: 118, h: 268 },
-  { x: 266, y: 318, w: 118, h: 268 },
-  { x: 390, y: 318, w: 118, h: 268 },
-  { x: 514, y: 318, w: 118, h: 268 },
+  { x: 28, y: 332, w: 108, h: 252 },
+  { x: 148, y: 332, w: 108, h: 252 },
+  { x: 268, y: 332, w: 108, h: 252 },
+  { x: 388, y: 332, w: 108, h: 252 },
+  { x: 508, y: 332, w: 108, h: 252 },
 ];
 
 /** sleeve-wrap-board.png — bottom horizontal “how it starts” forearm */
