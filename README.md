@@ -27,19 +27,26 @@ Tattoos are composited from your design boards in `public/reference/`:
 
 Tune crop regions in `src/textures/referenceCrops.ts` if you update the images.
 
+## 3D arm model
+
+- **Hand:** `public/models/left-hand.glb` — WebXR generic left hand (rigged, anatomical). Swap this file for any hand GLB.
+- **Forearm:** procedural mesh with tattoo UV mapping in `src/components/scene/forearmGeometry.ts`
+- **Full arm scan:** replace `public/models/left-hand.glb` with a complete forearm+hand GLB (e.g. Smithsonian left forearm scan) and wire it in `HandModel.tsx` + `forearmGeometry.ts`. A placeholder `left-arm.glb` (CC0 WRAD FPS arms) is included for reference.
+
 ## Customization — where to swap things
 
 | What | File |
 |------|------|
+| Hand 3D model | `public/models/left-hand.glb` + `src/components/scene/HandModel.tsx` |
+| Forearm / full arm mesh | `src/components/scene/forearmGeometry.ts` |
 | Phase titles & meanings | `src/data/phases.ts` |
 | Symbolism legend copy | `src/data/symbolism.ts` |
 | "BE HERE." anchor text | `src/textures/tattooElements.ts` → `ANCHOR_PHRASE` |
 | Compass initials (M, E, W, D) | `src/textures/tattooElements.ts` → `FAMILY_INITIALS` |
-| Birth flowers (Sept/April/May) | `src/textures/tattooElements.ts` → `BIRTH_FLOWERS` and `drawAster` / `drawDaisy` / `drawLily` |
-| Individual tattoo art (SVG/PNG) | Replace `draw*` functions in `src/textures/tattooElements.ts` with `ctx.drawImage()` |
-| 3D arm model | `src/components/scene/ForearmModel.tsx` — swap procedural mesh for glTF |
+| Birth flowers (Sept/April/May) | `src/textures/tattooElements.ts` → `BIRTH_FLOWERS` |
+| Individual tattoo art (SVG/PNG) | `src/textures/tattooElements.ts` — `draw*` functions |
 | Label positions on arm | `src/components/scene/LabelMarkers.tsx` → `anchors` |
-| Reference design boards | Replace images in `public/reference/` |
+| Reference design boards | `public/reference/` |
 | Camera angles | `src/data/cameraPresets.ts` |
 
 ## Tattoo concept

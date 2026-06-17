@@ -1,17 +1,19 @@
 /**
- * SWAP: Replace procedural mesh with a real arm model.
- *
- * Example glTF swap:
- *   import { useGLTF } from '@react-three/drei';
- *   const { scene } = useGLTF('/models/forearm.glb');
- *   return <primitive object={scene.clone()} position={[0,0,0]} />
- *
- * Ensure the imported model is a LEFT arm with wrist at y=0, hand below, elbow at y=2.5.
+ * SWAP: Full arm replacement
+ * --------------------------
+ * 1. Hand: public/models/left-hand.glb (see HandModel.tsx)
+ * 2. Forearm mesh: replace createForearmGeometry() in forearmGeometry.ts
+ * 3. Full scan: use a single left-arm.glb with UVs and remove HandModel + procedural forearm
  */
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { createForearmGeometry, createForearmTattooGeometry } from './forearmGeometry';
+import {
+  createForearmGeometry,
+  createForearmTattooGeometry,
+  createWristCollarGeometry,
+} from './forearmGeometry';
+import { HandModel } from './HandModel';
 
 function createSkinNormalMap(): THREE.CanvasTexture {
   const size = 128;
@@ -53,8 +55,9 @@ interface ForearmModelProps {
 }
 
 export function ForearmModel({ tattooTexture }: ForearmModelProps) {
-  const skinGeometry = useMemo(() => createForearmGeometry(), []);
+  const forearmGeometry = useMemo(() => createForearmGeometry(), []);
   const tattooGeometry = useMemo(() => createForearmTattooGeometry(), []);
+  const wristGeometry = useMemo(() => createWristCollarGeometry(), []);
   const skinMaterial = useSkinMaterial();
 
   const tattooMaterial = useMemo(
@@ -73,7 +76,9 @@ export function ForearmModel({ tattooTexture }: ForearmModelProps) {
 
   return (
     <group>
-      <mesh geometry={skinGeometry} material={skinMaterial} castShadow receiveShadow />
+      <HandModel />
+      <mesh geometry={wristGeometry} material={skinMaterial} castShadow receiveShadow />
+      <mesh geometry={forearmGeometry} material={skinMaterial} castShadow receiveShadow />
       <mesh geometry={tattooGeometry} material={tattooMaterial} />
     </group>
   );

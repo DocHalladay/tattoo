@@ -1,85 +1,29 @@
 /**
- * SWAP: Replace with imported glTF hand + forearm model.
- * Left arm: palm faces +Z (inner). Wrist at y=0, hand extends downward.
+ * SWAP: Replace createForearmGeometry() with imported glTF forearm mesh.
+ * Hand is loaded separately from public/models/left-hand.glb (see HandModel.tsx).
+ * For a full arm scan, replace both with a single left-arm.glb and merge UVs.
  */
 
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const RADIAL_SEGMENTS = 64;
+const HEIGHT_SEGMENTS = 48;
 
-/** Wrist joint — forearm starts here */
+/** Wrist joint — forearm starts here (hand attaches below) */
 export const WRIST_Y = 0;
 /** Elbow end */
 export const ELBOW_Y = 2.5;
-/** Fingertips */
-export const HAND_TIP_Y = -0.78;
+/** Fingertips (hand model aligned to this Y) */
+export const HAND_TIP_Y = -0.58;
+
+export const LIMB_CENTER_Y = (ELBOW_Y + HAND_TIP_Y) / 2;
 
 const FOREARM_LENGTH = ELBOW_Y - WRIST_Y;
-const HAND_LENGTH = WRIST_Y - HAND_TIP_Y;
-export const LIMB_CENTER_Y = (ELBOW_Y + HAND_TIP_Y) / 2;
 
 function radiusAtForearmT(t: number): number {
   const base = THREE.MathUtils.lerp(0.35, 0.42, t);
   const bulge = Math.exp(-Math.pow((t - 0.45) / 0.22, 2)) * 0.08;
   return base + bulge;
-}
-
-/** Hand uses elliptical cross-sections; forearm is circular */
-function handRadiiAt(y: number): { rx: number; rz: number } {
-  const t = (y - HAND_TIP_Y) / HAND_LENGTH; // 0 fingertips → 1 wrist
-  const palm = Math.sin(t * Math.PI * 0.92); // bell curve, 0 at tips
-
-  const rx = THREE.MathUtils.lerp(0.1, 0.34, Math.pow(t, 0.55)) + palm * 0.06;
-  const rz = THREE.MathUtils.lerp(0.07, 0.31, Math.pow(t, 0.65)) + palm * 0.04;
-  return { rx, rz };
-}
-
-function addEllipticalColumn(
-  positions: number[],
-  normals: number[],
-  uvs: number[],
-  indices: number[],
-  yStart: number,
-  yEnd: number,
-  segmentsY: number,
-  uvVStart: number,
-  uvVEnd: number,
-  radiusFn: (y: number, t: number) => { rx: number; rz: number },
-) {
-  const baseVertex = positions.length / 3;
-
-  for (let yi = 0; yi <= segmentsY; yi++) {
-    const t = yi / segmentsY;
-    const y = THREE.MathUtils.lerp(yStart, yEnd, t);
-    const { rx, rz } = radiusFn(y, t);
-    const v = THREE.MathUtils.lerp(uvVStart, uvVEnd, t);
-
-    for (let xi = 0; xi <= RADIAL_SEGMENTS; xi++) {
-      const u = xi / RADIAL_SEGMENTS;
-      const theta = u * Math.PI * 2;
-      const x = Math.sin(theta) * rx;
-      const z = Math.cos(theta) * rz;
-
-      positions.push(x, y, z);
-      const nx = Math.sin(theta) / rx;
-      const nz = Math.cos(theta) / rz;
-      const len = Math.sqrt(nx * nx + nz * nz) || 1;
-      normals.push(nx / len, 0, nz / len);
-      uvs.push(u, v);
-    }
-  }
-
-  const row = RADIAL_SEGMENTS + 1;
-  for (let yi = 0; yi < segmentsY; yi++) {
-    for (let xi = 0; xi < RADIAL_SEGMENTS; xi++) {
-      const a = baseVertex + yi * row + xi;
-      const b = a + row;
-      const c = b + 1;
-      const d = a + 1;
-      indices.push(a, b, d, b, c, d);
-    }
-  }
 }
 
 function addDiskCap(
@@ -88,8 +32,7 @@ function addDiskCap(
   uvs: number[],
   indices: number[],
   y: number,
-  rx: number,
-  rz: number,
+  radius: number,
   normalY: number,
 ) {
   const centerIndex = positions.length / 3;
@@ -99,7 +42,7 @@ function addDiskCap(
 
   for (let i = 0; i <= RADIAL_SEGMENTS; i++) {
     const theta = (i / RADIAL_SEGMENTS) * Math.PI * 2;
-    positions.push(Math.sin(theta) * rx, y, Math.cos(theta) * rz);
+    positions.push(Math.sin(theta) * radius, y, Math.cos(theta) * radius);
     normals.push(0, normalY, 0);
     uvs.push(i / RADIAL_SEGMENTS, normalY > 0 ? 1 : 0);
   }
@@ -112,35 +55,6 @@ function addDiskCap(
   }
 }
 
-/** Four fingers + thumb — simplified boxes */
-function createFingersGeometry(): THREE.BufferGeometry {
-  const parts: THREE.BufferGeometry[] = [];
-  const fingerW = 0.055;
-  const fingerD = 0.045;
-
-  const fingerOffsets = [-0.1, -0.033, 0.033, 0.1];
-  fingerOffsets.forEach((ox) => {
-    const geo = new THREE.BoxGeometry(fingerW, 0.42, fingerD);
-    geo.translate(ox, HAND_TIP_Y + 0.24, 0.1);
-    parts.push(geo);
-  });
-
-  const thumb = new THREE.BoxGeometry(0.05, 0.28, 0.05);
-  thumb.rotateZ(0.55);
-  thumb.translate(-0.2, HAND_TIP_Y + 0.38, 0.06);
-  parts.push(thumb);
-
-  const knuckles = new THREE.BoxGeometry(0.26, 0.06, 0.08);
-  knuckles.translate(0, HAND_TIP_Y + 0.48, 0.12);
-  parts.push(knuckles);
-
-  const merged = mergeGeometries(parts, false);
-  parts.forEach((g) => g.dispose());
-  if (!merged) return new THREE.BufferGeometry();
-  merged.computeVertexNormals();
-  return merged;
-}
-
 function buildForearmColumn(
   positions: number[],
   normals: number[],
@@ -148,47 +62,30 @@ function buildForearmColumn(
   indices: number[],
   inflate = 1,
 ) {
-  const segmentsY = 48;
-  addEllipticalColumn(
-    positions,
-    normals,
-    uvs,
-    indices,
-    WRIST_Y,
-    ELBOW_Y,
-    segmentsY,
-    0,
-    1,
-    (y) => {
-      const t = (y - WRIST_Y) / FOREARM_LENGTH;
-      const r = radiusAtForearmT(t) * inflate;
-      return { rx: r, rz: r };
-    },
-  );
-}
+  for (let y = 0; y <= HEIGHT_SEGMENTS; y++) {
+    const t = y / HEIGHT_SEGMENTS;
+    const yPos = WRIST_Y + t * FOREARM_LENGTH;
+    const r = radiusAtForearmT(t) * inflate;
 
-function buildHandColumn(
-  positions: number[],
-  normals: number[],
-  uvs: number[],
-  indices: number[],
-) {
-  const segmentsY = 20;
-  addEllipticalColumn(
-    positions,
-    normals,
-    uvs,
-    indices,
-    HAND_TIP_Y,
-    WRIST_Y,
-    segmentsY,
-    -0.08,
-    0,
-    (y) => handRadiiAt(y),
-  );
+    for (let x = 0; x <= RADIAL_SEGMENTS; x++) {
+      const u = x / RADIAL_SEGMENTS;
+      const theta = u * Math.PI * 2;
+      positions.push(Math.sin(theta) * r, yPos, Math.cos(theta) * r);
+      normals.push(Math.sin(theta), 0, Math.cos(theta));
+      uvs.push(u, t);
+    }
+  }
 
-  const tip = handRadiiAt(HAND_TIP_Y);
-  addDiskCap(positions, normals, uvs, indices, HAND_TIP_Y, tip.rx, tip.rz, -1);
+  const row = RADIAL_SEGMENTS + 1;
+  for (let y = 0; y < HEIGHT_SEGMENTS; y++) {
+    for (let x = 0; x < RADIAL_SEGMENTS; x++) {
+      const a = y * row + x;
+      const b = a + row;
+      const c = b + 1;
+      const d = a + 1;
+      indices.push(a, b, d, b, c, d);
+    }
+  }
 }
 
 function finalizeGeometry(
@@ -206,30 +103,22 @@ function finalizeGeometry(
   return geometry;
 }
 
-/** Full left arm: hand + wrist + forearm (skin) */
+/** Forearm + wrist taper (skin) */
 export function createForearmGeometry(): THREE.BufferGeometry {
   const positions: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
 
-  buildHandColumn(positions, normals, uvs, indices);
   buildForearmColumn(positions, normals, uvs, indices);
 
   const elbowR = radiusAtForearmT(1);
-  addDiskCap(positions, normals, uvs, indices, ELBOW_Y, elbowR, elbowR, 1);
+  addDiskCap(positions, normals, uvs, indices, ELBOW_Y, elbowR, 1);
 
-  const body = finalizeGeometry(positions, normals, uvs, indices);
-  const fingers = createFingersGeometry();
-  const merged = mergeGeometries([body, fingers], false);
-  fingers.dispose();
-  body.dispose();
-  if (!merged) return body;
-  merged.computeVertexNormals();
-  return merged;
+  return finalizeGeometry(positions, normals, uvs, indices);
 }
 
-/** Tattoo shell — forearm + wrist only (y >= 0), slightly inflated */
+/** Tattoo shell — slightly inflated */
 export function createForearmTattooGeometry(): THREE.BufferGeometry {
   const positions: number[] = [];
   const normals: number[] = [];
@@ -238,8 +127,46 @@ export function createForearmTattooGeometry(): THREE.BufferGeometry {
 
   buildForearmColumn(positions, normals, uvs, indices, 1.004);
 
-  const geometry = finalizeGeometry(positions, normals, uvs, indices);
-  return geometry;
+  return finalizeGeometry(positions, normals, uvs, indices);
+}
+
+/** Short wrist collar blending hand into forearm */
+export function createWristCollarGeometry(): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  const segments = 12;
+  const yStart = -0.06;
+  const yEnd = 0.04;
+
+  for (let y = 0; y <= segments; y++) {
+    const t = y / segments;
+    const yPos = THREE.MathUtils.lerp(yStart, yEnd, t);
+    const r = THREE.MathUtils.lerp(0.3, radiusAtForearmT(0), t);
+
+    for (let x = 0; x <= RADIAL_SEGMENTS; x++) {
+      const u = x / RADIAL_SEGMENTS;
+      const theta = u * Math.PI * 2;
+      positions.push(Math.sin(theta) * r, yPos, Math.cos(theta) * r);
+      normals.push(Math.sin(theta), 0, Math.cos(theta));
+      uvs.push(u, t * 0.05);
+    }
+  }
+
+  const row = RADIAL_SEGMENTS + 1;
+  for (let y = 0; y < segments; y++) {
+    for (let x = 0; x < RADIAL_SEGMENTS; x++) {
+      const a = y * row + x;
+      const b = a + row;
+      const c = b + 1;
+      const d = a + 1;
+      indices.push(a, b, d, b, c, d);
+    }
+  }
+
+  return finalizeGeometry(positions, normals, uvs, indices);
 }
 
 export function createUpperArmGeometry(): THREE.BufferGeometry {
@@ -253,23 +180,32 @@ export function createUpperArmGeometry(): THREE.BufferGeometry {
   const wristR = 0.42;
   const shoulderR = 0.55;
 
-  addEllipticalColumn(
-    positions,
-    normals,
-    uvs,
-    indices,
-    ELBOW_Y,
-    ELBOW_Y + length,
-    segments,
-    1,
-    1.15,
-    (_y, t) => {
-      const r = THREE.MathUtils.lerp(wristR, shoulderR, t);
-      return { rx: r, rz: r };
-    },
-  );
+  for (let y = 0; y <= segments; y++) {
+    const t = y / segments;
+    const yPos = ELBOW_Y + t * length;
+    const r = THREE.MathUtils.lerp(wristR, shoulderR, t);
 
-  addDiskCap(positions, normals, uvs, indices, ELBOW_Y + length, shoulderR, shoulderR, 1);
+    for (let x = 0; x <= RADIAL_SEGMENTS; x++) {
+      const u = x / RADIAL_SEGMENTS;
+      const theta = u * Math.PI * 2;
+      positions.push(Math.sin(theta) * r, yPos, Math.cos(theta) * r);
+      normals.push(Math.sin(theta), 0, Math.cos(theta));
+      uvs.push(u, 1 + t * 0.15);
+    }
+  }
+
+  const row = RADIAL_SEGMENTS + 1;
+  for (let y = 0; y < segments; y++) {
+    for (let x = 0; x < RADIAL_SEGMENTS; x++) {
+      const a = y * row + x;
+      const b = a + row;
+      const c = b + 1;
+      const d = a + 1;
+      indices.push(a, b, d, b, c, d);
+    }
+  }
+
+  addDiskCap(positions, normals, uvs, indices, ELBOW_Y + length, shoulderR, 1);
 
   return finalizeGeometry(positions, normals, uvs, indices);
 }

@@ -11,7 +11,7 @@ interface LabelMarkersProps {
 }
 
 const anchors: Record<string, [number, number, number]> = {
-  anchor: [0, 0.02, 0.34],
+  anchor: [0, -0.02, 0.36],
   family: [0.32, 0.9, 0.28],
   struggle: [-0.35, 1.1, -0.15],
   direction: [-0.42, 1.05, -0.35],

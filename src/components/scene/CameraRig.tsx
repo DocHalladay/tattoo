@@ -14,7 +14,7 @@ export function CameraRig({ preset, autoRotate, onPresetApplied }: CameraRigProp
   const { camera } = useThree();
   const controlsRef = useRef<React.ComponentRef<typeof OrbitControls>>(null);
   const targetPos = useRef(new THREE.Vector3());
-  const targetLook = useRef(new THREE.Vector3(0, 0.85, 0));
+  const targetLook = useRef(new THREE.Vector3(0, 0.95, 0));
   const animating = useRef(false);
   const rotationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,7 +67,7 @@ export function CameraRig({ preset, autoRotate, onPresetApplied }: CameraRigProp
       maxDistance={6}
       autoRotate={shouldAutoRotate}
       autoRotateSpeed={0.8}
-      target={[0, 0.85, 0]}
+      target={[0, 0.95, 0]}
     />
   );
 }

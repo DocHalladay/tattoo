@@ -20,9 +20,7 @@ export interface CameraPreset {
 }
 
 /** Center of full limb (hand through forearm) */
-const LIMB_CENTER: [number, number, number] = [0, 0.85, 0];
-const WRIST_TARGET: [number, number, number] = [0, -0.05, 0];
-const HAND_TARGET: [number, number, number] = [0, -0.35, 0.15];
+const LIMB_CENTER: [number, number, number] = [0, 0.95, 0];
 
 export const cameraPresets: CameraPreset[] = [
   {
@@ -46,14 +44,14 @@ export const cameraPresets: CameraPreset[] = [
   {
     id: 'wrist',
     label: 'Wrist',
-    position: [0.2, 0.15, 2.2],
-    target: WRIST_TARGET,
+    position: [0.15, -0.05, 2.4],
+    target: [0, -0.02, 0.2],
   },
   {
     id: 'hand',
     label: 'Hand',
-    position: [0.85, -0.25, 1.6],
-    target: HAND_TARGET,
+    position: [0.9, -0.35, 1.4],
+    target: [0, -0.35, 0.2],
   },
   {
     id: 'rotation',
