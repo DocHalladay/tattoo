@@ -19,6 +19,14 @@ Open the URL shown in the terminal (typically `http://localhost:5173`).
 - Toggle labels, shading, auto-rotate, and future sleeve preview
 - Export a PNG screenshot of the current 3D view
 
+## Tattoo source
+
+Tattoos are composited from your design boards in `public/reference/`:
+- `sleeve-wrap-board.png` — wrap-around rotation views
+- `sleeve-story-board.png` — center forearm + phase progression
+
+Tune crop regions in `src/textures/referenceCrops.ts` if you update the images.
+
 ## Customization — where to swap things
 
 | What | File |
