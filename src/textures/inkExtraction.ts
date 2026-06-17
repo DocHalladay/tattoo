@@ -1,12 +1,16 @@
 /**
  * Converts reference photo pixels into tattoo ink on transparent background.
  *
- * Key discriminator: tattoo ink is NEUTRAL (low chroma, low warmth).
- * Skin is WARM (r >> b) and has higher chroma.
- * We preserve solid lines (lum < 80) AND the gray-wash shading (lum 80–155)
- * that gives this style its depth — previously the wash was being cut off at 115.
+ * Simple two-factor approach:
+ *   1. Darkness:   darker pixels = more likely to be ink
+ *   2. Neutrality: warm pixels (r >> b) are skin, not ink
+ *
+ * Thresholds validated against actual pixel values in the reference images:
+ *   - Dark ink lines:  lum ≈ 15–50,  warmth ≈ 8
+ *   - Gray wash:       lum ≈ 60–100, warmth ≈ 15
+ *   - Skin midtones:   lum ≈ 90–130, warmth ≈ 45–65  → excluded by warmth > 32
+ *   - Studio bg black: lum < 15                       → excluded by lum floor
  */
-
 export function extractTattooInk(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -23,70 +27,29 @@ export function extractTattooInk(
     const g = d[i + 1];
     const b = d[i + 2];
 
-    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    const warmth = r - b;                                   // +ve = warm skin, ≈0 = neutral ink
-    const chroma = Math.max(r, g, b) - Math.min(r, g, b);  // colorfulness
+    const lum    = 0.299 * r + 0.587 * g + 0.114 * b;
+    const warmth = r - b;  // > 0 = warm (skin), ≈ 0 = neutral (ink)
 
-    // Pure black infographic / studio background panel
-    const isInfographicBlack = lum < 22;
+    // Pure studio background black — transparent
+    if (lum < 15) { d[i + 3] = 0; continue; }
 
-    // Warm skin tone: medium brightness, distinctly warm, has chroma
-    const isSkin =
-      lum > 85 &&
-      warmth > 18 &&
-      r >= g * 0.82 &&
-      chroma > 12;
+    // Bright pixels — skin highlights or paper — transparent
+    if (lum > 130) { d[i + 3] = 0; continue; }
 
-    // Parchment / paper / text panel background on story board
-    const isPaper = lum > 180 && chroma < 30 && warmth > -8;
+    // Warm pixels — skin — transparent
+    if (warmth > 32) { d[i + 3] = 0; continue; }
 
-    // Pure highlight / near-white
-    const isHighlight = lum > 215;
+    // Remaining pixels: scale alpha by darkness.
+    // lum=15 → alpha≈255 (solid ink), lum=130 → alpha=0 (boundary)
+    const alpha = Math.round(((130 - lum) / 115) * 255 * strength);
 
-    if (isInfographicBlack || isSkin || isPaper || isHighlight) {
-      d[i + 3] = 0;
-      continue;
-    }
+    if (alpha < 8) { d[i + 3] = 0; continue; }
 
-    // Only keep NEUTRAL pixels (low warmth + low chroma).
-    // This catches dark-warm skin that bleeds through the skin filter above.
-    const isNeutral = warmth < 22 && chroma < 50;
-    if (!isNeutral) {
-      d[i + 3] = 0;
-      continue;
-    }
-
-    // ── Tattoo ink classification ──────────────────────────────────────────
-    let ink = 0;
-
-    if (lum < 55) {
-      // Solid black lines — full opacity
-      ink = 255;
-    } else if (lum < 90) {
-      // Dark ink / heavy line edges
-      ink = Math.round(255 - (lum - 55) * (255 / 35) * 0.35);  // 255 → ~147
-    } else if (lum < 140) {
-      // Gray wash — shading that gives this style depth
-      // Previously cut off at lum 115; now extended to 140 for richer washes
-      ink = Math.round(150 * (1 - (lum - 90) / 50));           // 150 → 0
-    } else if (lum < 160) {
-      // Very light wash / feathered edges
-      ink = Math.round(40 * (1 - (lum - 140) / 20));
-    } else {
-      ink = 0;
-    }
-
-    ink = Math.round(ink * strength);
-    if (ink < 10) {
-      d[i + 3] = 0;
-      continue;
-    }
-
-    // Near-black ink colour with faint warm hint for realism
+    // Near-black ink color with subtle warm hint for realism
     d[i]     = 12;
     d[i + 1] = 10;
     d[i + 2] = 9;
-    d[i + 3] = Math.min(255, ink);
+    d[i + 3] = Math.min(255, alpha);
   }
 
   ctx.putImageData(imageData, x, y);

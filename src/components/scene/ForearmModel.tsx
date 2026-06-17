@@ -70,17 +70,12 @@ export function ForearmModel({ tattooTexture }: ForearmModelProps) {
 
   const tattooMaterial = useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshBasicMaterial({
         map: tattooTexture,
         transparent: true,
-        alphaTest: 0.05,
-        depthWrite: false,   // avoid z-fighting with skin
-        depthTest: true,
+        alphaTest: 0.03,
+        depthWrite: false,   // transparent overlay — don't fight skin depth
         side: THREE.FrontSide,
-        roughness: 0.85,     // ink sits slightly matte in skin
-        metalness: 0.0,
-        envMapIntensity: 0.3,
-        toneMapped: true,
       }),
     [tattooTexture],
   );

@@ -27,7 +27,7 @@ import * as THREE from 'three';
 import type { ShadingMode } from '../store/AppContext';
 import { TEXTURE_WIDTH, TEXTURE_HEIGHT } from './tattooElements';
 import {
-  WRAP_ROTATION_VIEWS,
+  WRAP_TOP_VIEWS,
   STORY_CENTER_FOREARM,
 } from './referenceCrops';
 import { extractTattooInk, applyShadingToInk } from './inkExtraction';
@@ -53,6 +53,9 @@ let cacheTexture: THREE.CanvasTexture | null = null;
  * U=0 — the face that greets the user with the default camera position.
  * Order: 2 → 3 → 4 → 0 → 1 (wraps seamlessly).
  *
+ * Uses WRAP_TOP_VIEWS (314px tall, "A SLEEVE THAT TELLS YOUR STORY" section)
+ * which are higher quality than the smaller rotation strip views (248px tall).
+ *
  * Each arm photo is oriented wrist=bottom / elbow=top in the reference image.
  * We need wrist at canvas TOP (V=0), so we flip each slice vertically.
  */
@@ -67,7 +70,7 @@ function paintRotationStrip(
   const sliceW = totalW / n;
 
   paintOrder.forEach((viewIdx, paintSlot) => {
-    const crop = WRAP_ROTATION_VIEWS[viewIdx];
+    const crop = WRAP_TOP_VIEWS[viewIdx];
     const dx = Math.round(paintSlot * sliceW);
     const dw = Math.round((paintSlot + 1) * sliceW) - dx;
 
@@ -134,7 +137,7 @@ function paintStoryCenterArm(
 export async function buildReferenceTattooTexture(
   shading: ShadingMode,
 ): Promise<THREE.CanvasTexture> {
-  const key = `ref-v5-full-${shading}`;
+  const key = `ref-v6-full-${shading}`;
   if (cacheTexture && cacheKey === key) return cacheTexture;
 
   const { wrap, story } = await loadReferenceImages();
