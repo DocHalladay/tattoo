@@ -55,25 +55,27 @@ export function ForearmModel({ tattooTexture }: ForearmModelProps) {
   const geometry = useMemo(() => createForearmGeometry(), []);
   const skinMaterial = useSkinMaterial();
 
-  const tattooMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        map: tattooTexture,
-        transparent: true,
-        alphaTest: 0.05,
-        depthWrite: false,
-        roughness: 0.9,
-        metalness: 0,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-      }),
-    [tattooTexture],
-  );
+  const tattooMaterial = useMemo(() => {
+    const mat = new THREE.MeshBasicMaterial({
+      map: tattooTexture,
+      transparent: true,
+      alphaTest: 0.02,
+      depthWrite: false,
+      depthTest: true,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    return mat;
+  }, [tattooTexture]);
 
   return (
     <group>
-      <mesh geometry={geometry} material={skinMaterial} castShadow receiveShadow />
-      <mesh geometry={geometry} material={tattooMaterial} castShadow receiveShadow />
+      <mesh geometry={geometry} material={skinMaterial} castShadow receiveShadow renderOrder={0} />
+      <mesh
+        geometry={geometry}
+        material={tattooMaterial}
+        renderOrder={1}
+      />
     </group>
   );
 }

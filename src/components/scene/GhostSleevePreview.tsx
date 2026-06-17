@@ -14,15 +14,14 @@ export function GhostSleevePreview({ tattooTexture, visible }: GhostSleevePrevie
 
   const tattooMaterial = useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshBasicMaterial({
         map: tattooTexture,
         transparent: true,
-        opacity: 0.35,
+        opacity: 0.45,
         alphaTest: 0.02,
         depthWrite: false,
-        roughness: 0.9,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
+        side: THREE.DoubleSide,
+        toneMapped: false,
       }),
     [tattooTexture],
   );
@@ -38,8 +37,8 @@ export function GhostSleevePreview({ tattooTexture, visible }: GhostSleevePrevie
 
   return (
     <group>
-      <mesh geometry={geometry} material={ghostSkin} />
-      <mesh geometry={geometry} material={tattooMaterial} />
+      <mesh geometry={geometry} material={ghostSkin} renderOrder={0} />
+      <mesh geometry={geometry} material={tattooMaterial} renderOrder={1} />
     </group>
   );
 }

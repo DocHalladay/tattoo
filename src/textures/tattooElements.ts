@@ -46,33 +46,40 @@ export function waveIntensity(phase: number): number {
 }
 
 function inkAlpha(shading: ShadingMode, base: number): number {
-  return shading === 'heavy' ? Math.min(1, base * 1.35) : base * 0.75;
+  return shading === 'heavy' ? Math.min(1, base * 1.4) : base * 0.95;
 }
 
 function setInkStyle(ctx: CanvasRenderingContext2D, shading: ShadingMode, alpha: number) {
-  ctx.strokeStyle = `rgba(18, 14, 12, ${inkAlpha(shading, alpha)})`;
-  ctx.fillStyle = `rgba(18, 14, 12, ${inkAlpha(shading, alpha * 0.85)})`;
-  ctx.lineWidth = shading === 'heavy' ? 2.2 : 1.4;
+  ctx.strokeStyle = `rgba(8, 6, 5, ${inkAlpha(shading, alpha)})`;
+  ctx.fillStyle = `rgba(8, 6, 5, ${inkAlpha(shading, alpha * 0.9)})`;
+  ctx.lineWidth = shading === 'heavy' ? 3.5 : 2.2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 }
 
-/** Map UV (0-1) to canvas pixels */
-export function uv(u: number, v: number): [number, number] {
-  return [u * TEXTURE_WIDTH, v * TEXTURE_HEIGHT];
+const UV_V_MAX = 1.15;
+
+/** Map arm UV to canvas pixels (v=0 wrist, v=1 elbow; matches Three.js after flipY=false) */
+export function uv(
+  u: number,
+  v: number,
+  canvasHeight = TEXTURE_HEIGHT * UV_V_MAX,
+): [number, number] {
+  return [u * TEXTURE_WIDTH, (1 - v / UV_V_MAX) * canvasHeight];
 }
 
 export function drawAnchor({ ctx, phase, shading, opacity }: DrawContext) {
   if (phase < 1 || opacity <= 0) return;
-  const [x, y] = uv(0.42, 0.05);
+  // u≈0 is inner (palm) side of left forearm
+  const [x, y] = uv(0.02, 0.06);
   setInkStyle(ctx, shading, opacity);
-  ctx.font = `${shading === 'heavy' ? 52 : 44}px Georgia, serif`;
+  ctx.font = `${shading === 'heavy' ? 88 : 72}px Georgia, serif`;
   ctx.textAlign = 'center';
   ctx.fillText(ANCHOR_PHRASE, x, y);
 
   // Small star below text
   ctx.beginPath();
-  const [sx, sy] = uv(0.42, 0.075);
+  const [sx, sy] = uv(0.02, 0.085);
   const r = 8;
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2 - Math.PI / 2;
@@ -88,9 +95,9 @@ export function drawAnchor({ ctx, phase, shading, opacity }: DrawContext) {
 export function drawFlowers({ ctx, phase, shading, opacity }: DrawContext) {
   if (phase < 1 || opacity <= 0) return;
   const stems = [
-    { u: 0.38, vBase: 0.1, vTop: 0.32 },
-    { u: 0.44, vBase: 0.12, vTop: 0.38 },
-    { u: 0.5, vBase: 0.11, vTop: 0.35 },
+    { u: 0.03, vBase: 0.1, vTop: 0.32 },
+    { u: 0.06, vBase: 0.12, vTop: 0.38 },
+    { u: 0.09, vBase: 0.11, vTop: 0.35 },
   ];
 
   stems.forEach((stem, i) => {
@@ -188,8 +195,8 @@ export function drawWaves({ ctx, phase, shading, opacity }: DrawContext) {
   const waveBands = phase < 2 ? 3 : 6;
   for (let band = 0; band < waveBands; band++) {
     const vStart = 0.22 + band * 0.04;
-    const uStart = 0.48 + band * 0.02;
-    const uEnd = 0.78 - band * 0.02;
+    const uStart = 0.12 + band * 0.04;
+    const uEnd = 0.62 - band * 0.02;
     const amplitude = (phase < 2 ? 18 : 35) + band * 5;
 
     ctx.beginPath();
@@ -236,7 +243,7 @@ export function drawCompass({ ctx, phase, shading, opacity }: DrawContext) {
   const o = fadeInAt(phase, 3) * opacity;
   if (o <= 0) return;
 
-  const [cx, cy] = uv(0.62, 0.4);
+  const [cx, cy] = uv(0.5, 0.4);
   const r = 90;
   setInkStyle(ctx, shading, o);
 
@@ -391,21 +398,22 @@ export function drawGhostHorizon(
   ctx: CanvasRenderingContext2D,
   shading: ShadingMode,
   opacity: number,
+  canvasHeight = TEXTURE_HEIGHT * 1.15,
 ) {
   if (opacity <= 0) return;
   const ghostAlpha = opacity * 0.2;
   setInkStyle(ctx, shading, ghostAlpha);
 
   // Horizon line across upper arm
-  const [x0, y0] = uv(0.1, 1.05);
-  const [x1] = uv(0.9, 1.05);
+  const [x0, y0] = uv(0.1, 1.05, canvasHeight);
+  const [x1] = uv(0.9, 1.05, canvasHeight);
   ctx.beginPath();
   ctx.moveTo(x0, y0);
   ctx.lineTo(x1, y0);
   ctx.stroke();
 
   // Sunrise arc
-  const [sx, sy] = uv(0.5, 1.08);
+  const [sx, sy] = uv(0.5, 1.08, canvasHeight);
   ctx.beginPath();
   ctx.arc(sx, sy, 60, Math.PI, 0);
   ctx.stroke();
@@ -415,7 +423,7 @@ export function drawGhostHorizon(
   for (let i = 0; i < 12; i++) {
     const u = 0.15 + (i % 4) * 0.2;
     const v = 1.02 + Math.floor(i / 4) * 0.04;
-    const [px, py] = uv(u, v);
+    const [px, py] = uv(u, v, canvasHeight);
     ctx.beginPath();
     ctx.arc(px, py, 2, 0, Math.PI * 2);
     ctx.fill();
@@ -424,7 +432,7 @@ export function drawGhostHorizon(
   // Cloud wisps
   ctx.strokeStyle = `rgba(120, 110, 100, ${ghostAlpha * 0.8})`;
   for (let c = 0; c < 3; c++) {
-    const [mx, my] = uv(0.2 + c * 0.25, 1.03);
+    const [mx, my] = uv(0.2 + c * 0.25, 1.03, canvasHeight);
     ctx.beginPath();
     ctx.moveTo(mx, my);
     ctx.bezierCurveTo(mx + 30, my - 8, mx + 60, my + 5, mx + 90, my);

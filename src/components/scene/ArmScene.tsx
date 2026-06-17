@@ -1,5 +1,5 @@
 import { useMemo, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { useApp } from '../../store/AppContext';
 import { generateTattooTexture } from '../../textures/tattooTextureGenerator';
 import { ForearmModel } from './ForearmModel';
@@ -7,6 +7,22 @@ import { GhostSleevePreview } from './GhostSleevePreview';
 import { Lighting } from './Lighting';
 import { CameraRig } from './CameraRig';
 import { LabelMarkers } from './LabelMarkers';
+
+function SceneInvalidator({
+  phase,
+  shadingMode,
+  showFuturePreview,
+}: {
+  phase: number;
+  shadingMode: string;
+  showFuturePreview: boolean;
+}) {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    invalidate();
+  }, [phase, shadingMode, showFuturePreview, invalidate]);
+  return null;
+}
 
 export function ArmScene() {
   const {
@@ -42,6 +58,11 @@ export function ArmScene() {
       style={{ width: '100%', height: '100%' }}
     >
       <Lighting />
+      <SceneInvalidator
+        phase={phase}
+        shadingMode={shadingMode}
+        showFuturePreview={showFuturePreview}
+      />
       <group position={[0, 0, 0]}>
         <ForearmModel tattooTexture={tattooTexture} />
         <GhostSleevePreview

@@ -26,7 +26,9 @@ export function generateTattooTexture(
   showGhost: boolean,
 ): THREE.CanvasTexture {
   const key = `${phase.toFixed(2)}-${shading}-${showGhost}`;
-  if (cachedTexture && cachedKey === key) return cachedTexture;
+  if (cachedTexture && cachedKey === key) {
+    return cachedTexture;
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = TEXTURE_WIDTH;
@@ -38,6 +40,8 @@ export function generateTattooTexture(
   const baseOpacity = 1;
   const dctx = { ctx, phase, shading, opacity: baseOpacity };
 
+  const canvasHeight = canvas.height;
+
   drawAnchor(dctx);
   drawFlowers(dctx);
   drawWaves(dctx);
@@ -47,7 +51,7 @@ export function generateTattooTexture(
 
   if (showGhost && phase >= 4.5) {
     const ghostOpacity = Math.min(1, (phase - 4.5) * 2);
-    drawGhostHorizon(ctx, shading, ghostOpacity);
+    drawGhostHorizon(ctx, shading, ghostOpacity, canvasHeight);
   }
 
   if (cachedTexture) {
@@ -56,7 +60,8 @@ export function generateTattooTexture(
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = THREE.RepeatWrapping;
+  texture.flipY = false;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.needsUpdate = true;
 
