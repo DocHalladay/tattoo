@@ -8,6 +8,7 @@ export type CameraPresetId =
   | 'outer'
   | 'top'
   | 'wrist'
+  | 'hand'
   | 'rotation';
 
 export interface CameraPreset {
@@ -18,38 +19,47 @@ export interface CameraPreset {
   autoRotate?: boolean;
 }
 
-const ARM_CENTER: [number, number, number] = [0, 1.25, 0];
+/** Center of full limb (hand through forearm) */
+const LIMB_CENTER: [number, number, number] = [0, 0.85, 0];
+const WRIST_TARGET: [number, number, number] = [0, -0.05, 0];
+const HAND_TARGET: [number, number, number] = [0, -0.35, 0.15];
 
 export const cameraPresets: CameraPreset[] = [
   {
     id: 'inner',
     label: 'Inner Forearm',
     position: [0, 1.1, 2.8],
-    target: ARM_CENTER,
+    target: [0, 1.2, 0],
   },
   {
     id: 'outer',
     label: 'Outer Forearm',
     position: [0, 1.2, -2.8],
-    target: ARM_CENTER,
+    target: [0, 1.2, 0],
   },
   {
     id: 'top',
     label: 'Top',
     position: [0.3, 3.2, 0.5],
-    target: ARM_CENTER,
+    target: [0, 1.5, 0],
   },
   {
     id: 'wrist',
     label: 'Wrist',
-    position: [1.5, 0.3, 1.8],
-    target: [0, 0.4, 0],
+    position: [0.2, 0.15, 2.2],
+    target: WRIST_TARGET,
+  },
+  {
+    id: 'hand',
+    label: 'Hand',
+    position: [0.85, -0.25, 1.6],
+    target: HAND_TARGET,
   },
   {
     id: 'rotation',
     label: 'Full Rotation',
-    position: [2.5, 1.5, 0],
-    target: ARM_CENTER,
+    position: [2.8, 0.9, 0],
+    target: LIMB_CENTER,
     autoRotate: true,
   },
 ];

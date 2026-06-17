@@ -77,7 +77,7 @@ export function ArmScene() {
       )}
       <Canvas
         shadows
-        camera={{ position: [0, 1.1, 2.8], fov: 42, near: 0.1, far: 50 }}
+        camera={{ position: [0, 0.9, 3.2], fov: 42, near: 0.1, far: 50 }}
         gl={{ preserveDrawingBuffer: true, antialias: true }}
         onCreated={({ gl }) => {
           canvasRef.current = gl.domElement;

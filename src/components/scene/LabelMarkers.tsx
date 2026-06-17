@@ -11,7 +11,7 @@ interface LabelMarkersProps {
 }
 
 const anchors: Record<string, [number, number, number]> = {
-  anchor: [0, 0.25, 0.38],
+  anchor: [0, 0.02, 0.34],
   family: [0.32, 0.9, 0.28],
   struggle: [-0.35, 1.1, -0.15],
   direction: [-0.42, 1.05, -0.35],
@@ -20,7 +20,7 @@ const anchors: Record<string, [number, number, number]> = {
 };
 
 const labelOffsets: Record<string, [number, number, number]> = {
-  anchor: [0.55, 0.1, 0.5],
+  anchor: [0.5, -0.15, 0.55],
   family: [0.75, 0.5, 0.45],
   struggle: [-0.75, 0.3, -0.55],
   direction: [-0.85, 0.2, -0.7],

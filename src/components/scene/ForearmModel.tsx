@@ -6,12 +6,12 @@
  *   const { scene } = useGLTF('/models/forearm.glb');
  *   return <primitive object={scene.clone()} position={[0,0,0]} />
  *
- * Ensure the imported model is a LEFT forearm, wrist at y=0, elbow at y=2.5.
+ * Ensure the imported model is a LEFT arm with wrist at y=0, hand below, elbow at y=2.5.
  */
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { createForearmGeometry } from './forearmGeometry';
+import { createForearmGeometry, createForearmTattooGeometry } from './forearmGeometry';
 
 function createSkinNormalMap(): THREE.CanvasTexture {
   const size = 128;
@@ -43,6 +43,7 @@ export function useSkinMaterial(): THREE.MeshStandardMaterial {
       metalness: 0.02,
       normalMap,
       normalScale: new THREE.Vector2(0.15, 0.15),
+      side: THREE.FrontSide,
     });
   }, []);
 }
@@ -52,7 +53,8 @@ interface ForearmModelProps {
 }
 
 export function ForearmModel({ tattooTexture }: ForearmModelProps) {
-  const geometry = useMemo(() => createForearmGeometry(), []);
+  const skinGeometry = useMemo(() => createForearmGeometry(), []);
+  const tattooGeometry = useMemo(() => createForearmTattooGeometry(), []);
   const skinMaterial = useSkinMaterial();
 
   const tattooMaterial = useMemo(
@@ -60,10 +62,10 @@ export function ForearmModel({ tattooTexture }: ForearmModelProps) {
       new THREE.MeshBasicMaterial({
         map: tattooTexture,
         transparent: true,
-        alphaTest: 0.04,
-        depthWrite: false,
+        alphaTest: 0.06,
+        depthWrite: true,
         depthTest: true,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide,
         toneMapped: false,
       }),
     [tattooTexture],
@@ -71,12 +73,8 @@ export function ForearmModel({ tattooTexture }: ForearmModelProps) {
 
   return (
     <group>
-      <mesh geometry={geometry} material={skinMaterial} castShadow receiveShadow renderOrder={0} />
-      <mesh
-        geometry={geometry}
-        material={tattooMaterial}
-        renderOrder={1}
-      />
+      <mesh geometry={skinGeometry} material={skinMaterial} castShadow receiveShadow />
+      <mesh geometry={tattooGeometry} material={tattooMaterial} />
     </group>
   );
 }
