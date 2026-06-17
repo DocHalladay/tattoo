@@ -1,6 +1,6 @@
 /**
- * SWAP: Adjust camera preset positions for a different arm model or scale.
- * Positions are spherical offsets from arm center (0, 1.25, 0).
+ * Camera presets — adjusted for hand at HAND_TIP_Y=-1.5, forearm to ELBOW_Y=2.5.
+ * Full limb center ≈ (2.5 + -1.5) / 2 = 0.5
  */
 
 export type CameraPresetId =
@@ -19,44 +19,44 @@ export interface CameraPreset {
   autoRotate?: boolean;
 }
 
-/** Center of full limb (hand through forearm) */
-const LIMB_CENTER: [number, number, number] = [0, 0.95, 0];
+/** Center of full limb: (ELBOW_Y=2.5 + HAND_TIP_Y=-1.5) / 2 = 0.5 */
+const LIMB_CENTER: [number, number, number] = [0, 0.5, 0];
 
 export const cameraPresets: CameraPreset[] = [
   {
     id: 'inner',
     label: 'Inner Forearm',
-    position: [0, 1.1, 2.8],
-    target: [0, 1.2, 0],
+    position: [0, 1.0, 3.2],
+    target: [0, 1.0, 0],
   },
   {
     id: 'outer',
     label: 'Outer Forearm',
-    position: [0, 1.2, -2.8],
-    target: [0, 1.2, 0],
+    position: [0, 1.0, -3.2],
+    target: [0, 1.0, 0],
   },
   {
     id: 'top',
-    label: 'Top',
-    position: [0.3, 3.2, 0.5],
-    target: [0, 1.5, 0],
+    label: 'Top Down',
+    position: [0.3, 3.8, 0.6],
+    target: [0, 1.2, 0],
   },
   {
     id: 'wrist',
     label: 'Wrist',
-    position: [0.15, -0.05, 2.4],
-    target: [0, -0.02, 0.2],
+    position: [0.2, -0.1, 2.8],
+    target: [0, 0.0, 0],
   },
   {
     id: 'hand',
     label: 'Hand',
-    position: [0.9, -0.35, 1.4],
-    target: [0, -0.35, 0.2],
+    position: [0.8, -1.0, 2.0],
+    target: [0, -0.8, 0],
   },
   {
     id: 'rotation',
     label: 'Full Rotation',
-    position: [2.8, 0.9, 0],
+    position: [3.2, 0.5, 0],
     target: LIMB_CENTER,
     autoRotate: true,
   },

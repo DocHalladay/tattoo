@@ -7,8 +7,6 @@ export function Toolbar() {
     setShowLabels,
     showReference,
     setShowReference,
-    showFuturePreview,
-    setShowFuturePreview,
     shadingMode,
     setShadingMode,
     autoRotate,
@@ -51,24 +49,17 @@ export function Toolbar() {
         </button>
         <button
           type="button"
-          className={showFuturePreview ? 'active' : ''}
-          onClick={() => setShowFuturePreview(!showFuturePreview)}
-        >
-          {showFuturePreview ? 'Hide' : 'Show'} Sleeve Preview
-        </button>
-        <button
-          type="button"
           className={shadingMode === 'light' ? 'active' : ''}
           onClick={() => setShadingMode('light')}
         >
-          Light Shading
+          Light Ink
         </button>
         <button
           type="button"
           className={shadingMode === 'heavy' ? 'active' : ''}
           onClick={() => setShadingMode('heavy')}
         >
-          Heavy Shading
+          Heavy Ink
         </button>
         <button
           type="button"

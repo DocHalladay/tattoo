@@ -69,7 +69,7 @@ button.active {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
   height: 100%;
 }
 
@@ -99,7 +99,7 @@ button.active {
 
 .app-main {
   display: grid;
-  grid-template-columns: 240px 1fr 220px;
+  grid-template-columns: 1fr;
   min-height: 0;
   overflow: hidden;
 }

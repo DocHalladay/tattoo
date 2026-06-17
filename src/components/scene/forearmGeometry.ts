@@ -13,8 +13,12 @@ const HEIGHT_SEGMENTS = 48;
 export const WRIST_Y = 0;
 /** Elbow end */
 export const ELBOW_Y = 2.5;
-/** Fingertips (hand model aligned to this Y) */
-export const HAND_TIP_Y = -0.58;
+/**
+ * Fingertips (hand model scaled to fill WRIST_Y → HAND_TIP_Y).
+ * Anatomically a hand is ~60% of forearm length, so 2.5 × 0.6 = 1.5 units.
+ * Increased from -0.58 which made the hand look tiny.
+ */
+export const HAND_TIP_Y = -1.5;
 
 export const LIMB_CENTER_Y = (ELBOW_Y + HAND_TIP_Y) / 2;
 

@@ -3,7 +3,6 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { useApp } from '../../store/AppContext';
 import { useTattooTexture } from '../../hooks/useTattooTexture';
 import { ForearmModel } from './ForearmModel';
-import { GhostSleevePreview } from './GhostSleevePreview';
 import { Lighting } from './Lighting';
 import { CameraRig } from './CameraRig';
 import { LabelMarkers } from './LabelMarkers';
@@ -19,22 +18,14 @@ function SceneInvalidator({ texture }: { texture: unknown }) {
 function TattooContent({
   texture,
   showLabels,
-  showFuturePreview,
 }: {
   texture: import('three').Texture;
   showLabels: boolean;
-  showFuturePreview: boolean;
 }) {
-  const { phase } = useApp();
-
   return (
     <>
       <SceneInvalidator texture={texture} />
       <ForearmModel tattooTexture={texture} />
-      <GhostSleevePreview
-        tattooTexture={texture}
-        visible={showFuturePreview && phase >= 4}
-      />
       <LabelMarkers visible={showLabels} />
     </>
   );
@@ -42,9 +33,7 @@ function TattooContent({
 
 export function ArmScene() {
   const {
-    phase,
     shadingMode,
-    showFuturePreview,
     showLabels,
     autoRotate,
     cameraPreset,
@@ -52,7 +41,7 @@ export function ArmScene() {
     canvasRef,
   } = useApp();
 
-  const { texture, ready } = useTattooTexture(phase, shadingMode, showFuturePreview);
+  const { texture, ready } = useTattooTexture(shadingMode);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -77,7 +66,7 @@ export function ArmScene() {
       )}
       <Canvas
         shadows
-        camera={{ position: [0, 0.95, 3.4], fov: 42, near: 0.1, far: 50 }}
+        camera={{ position: [0, 0.5, 4.0], fov: 42, near: 0.1, far: 50 }}
         gl={{ preserveDrawingBuffer: true, antialias: true }}
         onCreated={({ gl }) => {
           canvasRef.current = gl.domElement;
@@ -88,12 +77,8 @@ export function ArmScene() {
       >
         <Lighting />
         {texture && (
-          <group position={[0, 0, 0]}>
-            <TattooContent
-              texture={texture}
-              showLabels={showLabels}
-              showFuturePreview={showFuturePreview}
-            />
+          <group>
+            <TattooContent texture={texture} showLabels={showLabels} />
           </group>
         )}
         <CameraRig

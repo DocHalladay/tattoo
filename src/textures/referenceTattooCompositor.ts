@@ -44,57 +44,6 @@ let cacheTexture: THREE.CanvasTexture | null = null;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function smoothstep(t: number): number {
-  const c = Math.min(1, Math.max(0, t));
-  return c * c * (3 - 2 * c);
-}
-
-/** V threshold (in UV space) revealed at each phase level */
-function phaseRevealV(phase: number): number {
-  // Stops: wrist text → flowers → waves → mountains/compass → birds/full
-  const stops = [0.28, 0.50, 0.67, 0.84, 1.02];
-  const p = Math.min(5, Math.max(1, phase));
-  const lo = Math.floor(p) - 1;
-  const hi = Math.min(4, lo + 1);
-  const t = p === Math.floor(p) ? 1 : smoothstep(p - Math.floor(p));
-  return stops[lo] + (stops[hi] - stops[lo]) * t;
-}
-
-/**
- * With flipY=false:  UV V=0 → canvas y=0 (TOP), V=1 → canvas y=height (BOTTOM).
- * Forearm geometry:  V=0 at wrist, V=1 at elbow.
- * → Canvas TOP = wrist, canvas BOTTOM = elbow.
- *
- * The phase mask should hide elbow content (near top, low y) at early phases
- * and reveal it progressively. So at phase=1 we hide everything above (h - revealPx).
- */
-function applyPhaseMask(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  revealV: number,
-) {
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const d = imageData.data;
-
-  const revealFrac = revealV / UV_V_MAX;
-  const revealPx   = Math.round(revealFrac * h);
-  const fadeH      = Math.round(h * 0.04); // soft 4% fade edge
-  // Rows with y < cutY are hidden (elbow/upper arm — not yet revealed)
-  const cutY = h - revealPx;
-
-  for (let y = 0; y < h; y++) {
-    if (y >= cutY) continue; // below cutY = revealed
-    const fade = y > cutY - fadeH ? (y - (cutY - fadeH)) / fadeH : 0;
-    const row = y * w;
-    for (let x = 0; x < w; x++) {
-      const i = (row + x) * 4;
-      d[i + 3] = Math.round(d[i + 3] * fade);
-    }
-  }
-  ctx.putImageData(imageData, 0, 0);
-}
-
 // ── Layer A: Rotation strip ────────────────────────────────────────────────
 
 /**
@@ -183,11 +132,9 @@ function paintStoryCenterArm(
 // ── Main export ────────────────────────────────────────────────────────────
 
 export async function buildReferenceTattooTexture(
-  phase: number,
   shading: ShadingMode,
-  _showGhost: boolean,
 ): Promise<THREE.CanvasTexture> {
-  const key = `ref-v5-${phase.toFixed(2)}-${shading}`;
+  const key = `ref-v5-full-${shading}`;
   if (cacheTexture && cacheKey === key) return cacheTexture;
 
   const { wrap, story } = await loadReferenceImages();
@@ -203,9 +150,6 @@ export async function buildReferenceTattooTexture(
 
   // Layer B — story-board center arm (high-detail overlay, outer face)
   paintStoryCenterArm(ctx, story, CANVAS_W, CANVAS_H, 0.88);
-
-  // Phase mask — reveal from wrist upward
-  applyPhaseMask(ctx, CANVAS_W, CANVAS_H, phaseRevealV(phase));
 
   // Shading mode
   applyShadingToInk(ctx, CANVAS_W, CANVAS_H, shading);

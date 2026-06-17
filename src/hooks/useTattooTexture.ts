@@ -4,11 +4,7 @@ import type { ShadingMode } from '../store/AppContext';
 import { buildReferenceTattooTexture } from '../textures/referenceTattooCompositor';
 import { generateTattooTexture } from '../textures/tattooTextureGenerator';
 
-export function useTattooTexture(
-  phase: number,
-  shading: ShadingMode,
-  showGhost: boolean,
-) {
+export function useTattooTexture(shading: ShadingMode) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -16,7 +12,7 @@ export function useTattooTexture(
     let cancelled = false;
     setReady(false);
 
-    buildReferenceTattooTexture(phase, shading, showGhost)
+    buildReferenceTattooTexture(shading)
       .then((tex) => {
         if (!cancelled) {
           setTexture(tex);
@@ -25,7 +21,7 @@ export function useTattooTexture(
       })
       .catch(() => {
         if (!cancelled) {
-          const fallback = generateTattooTexture(phase, shading, showGhost);
+          const fallback = generateTattooTexture(shading);
           setTexture(fallback);
           setReady(true);
         }
@@ -34,7 +30,7 @@ export function useTattooTexture(
     return () => {
       cancelled = true;
     };
-  }, [phase, shading, showGhost]);
+  }, [shading]);
 
   return { texture, ready };
 }
