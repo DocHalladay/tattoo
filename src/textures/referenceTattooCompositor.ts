@@ -1,6 +1,26 @@
 /**
- * Builds tattoo textures from your design board images.
- * SWAP: Adjust crops in referenceCrops.ts or replace images in public/reference/.
+ * Builds the tattoo texture from the two reference board images.
+ *
+ * Strategy
+ * ────────
+ * The UV map wraps U=0→1 around the cylinder (U=0 = front face toward camera).
+ * We compose two layers:
+ *
+ * Layer A — Rotation strip (base, full 360°)
+ *   Five arm photos from the wrap board "WHAT IT LOOKS LIKE WRAPPED AROUND"
+ *   section, each representing ~72° of the circumference. They are stitched in
+ *   angular order: inner(palm) → inner-mid → outer-mid → outer → outer-side.
+ *   To put the outer/most-tattooed face at U≈0 (default camera view) the strip
+ *   is offset: we start painting from view[2] (outer-mid) at U=0.
+ *
+ * Layer B — Story-board center arm (detail overlay, outer ~70%)
+ *   The large single-arm photo from the story board is the highest-quality
+ *   source. It covers U=0.15→0.85 (the main visible face) at high opacity,
+ *   adding fine linework and gray wash that the rotation strip alone can't give.
+ *
+ * Phase mask reveals ink from wrist upward as the phase slider increases.
+ *
+ * SWAP: adjust crops in referenceCrops.ts.
  */
 
 import * as THREE from 'three';
@@ -8,25 +28,31 @@ import type { ShadingMode } from '../store/AppContext';
 import { TEXTURE_WIDTH, TEXTURE_HEIGHT } from './tattooElements';
 import {
   WRAP_ROTATION_VIEWS,
-  STORY_PHASE_ARMS,
-  WRAP_HORIZONTAL_FOREARM,
+  STORY_CENTER_FOREARM,
 } from './referenceCrops';
 import { extractTattooInk, applyShadingToInk } from './inkExtraction';
 import { loadReferenceImages } from './referenceTattooLoader';
 
+// UV V goes to 1.15 to leave room for the ghost upper-arm preview
 const UV_V_MAX = 1.15;
+const CANVAS_W = TEXTURE_WIDTH;
 const CANVAS_H = Math.round(TEXTURE_HEIGHT * UV_V_MAX);
 
+// ── Cache ──────────────────────────────────────────────────────────────────
 let cacheKey = '';
 let cacheTexture: THREE.CanvasTexture | null = null;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 function smoothstep(t: number): number {
   const c = Math.min(1, Math.max(0, t));
   return c * c * (3 - 2 * c);
 }
 
+/** V threshold (in UV space) revealed at each phase level */
 function phaseRevealV(phase: number): number {
-  const stops = [0.32, 0.52, 0.68, 0.86, 1.02];
+  // Stops: wrist text → flowers → waves → mountains/compass → birds/full
+  const stops = [0.28, 0.50, 0.67, 0.84, 1.02];
   const p = Math.min(5, Math.max(1, phase));
   const lo = Math.floor(p) - 1;
   const hi = Math.min(4, lo + 1);
@@ -34,6 +60,14 @@ function phaseRevealV(phase: number): number {
   return stops[lo] + (stops[hi] - stops[lo]) * t;
 }
 
+/**
+ * With flipY=false:  UV V=0 → canvas y=0 (TOP), V=1 → canvas y=height (BOTTOM).
+ * Forearm geometry:  V=0 at wrist, V=1 at elbow.
+ * → Canvas TOP = wrist, canvas BOTTOM = elbow.
+ *
+ * The phase mask should hide elbow content (near top, low y) at early phases
+ * and reveal it progressively. So at phase=1 we hide everything above (h - revealPx).
+ */
 function applyPhaseMask(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -42,142 +76,152 @@ function applyPhaseMask(
 ) {
   const imageData = ctx.getImageData(0, 0, w, h);
   const d = imageData.data;
-  const minY = h * (1 - revealV / UV_V_MAX);
-  const fadeH = h * 0.035;
+
+  const revealFrac = revealV / UV_V_MAX;
+  const revealPx   = Math.round(revealFrac * h);
+  const fadeH      = Math.round(h * 0.04); // soft 4% fade edge
+  // Rows with y < cutY are hidden (elbow/upper arm — not yet revealed)
+  const cutY = h - revealPx;
 
   for (let y = 0; y < h; y++) {
-    if (y >= minY) continue;
-    const fade = y > minY - fadeH ? (y - (minY - fadeH)) / fadeH : 0;
+    if (y >= cutY) continue; // below cutY = revealed
+    const fade = y > cutY - fadeH ? (y - (cutY - fadeH)) / fadeH : 0;
+    const row = y * w;
     for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
+      const i = (row + x) * 4;
       d[i + 3] = Math.round(d[i + 3] * fade);
     }
   }
   ctx.putImageData(imageData, 0, 0);
 }
 
-function drawCover(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  crop: { x: number; y: number; w: number; h: number },
-  dx: number,
-  dy: number,
-  dw: number,
-  dh: number,
-) {
-  ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, dx, dy, dw, dh);
-}
+// ── Layer A: Rotation strip ────────────────────────────────────────────────
 
-/** 5 rotation views stitched horizontally — wrap board middle row */
-function buildWrapStrip(
-  ctx: CanvasRenderingContext2D,
-  wrapImg: HTMLImageElement,
-  w: number,
-  h: number,
-) {
-  const sliceW = w / WRAP_ROTATION_VIEWS.length;
-  WRAP_ROTATION_VIEWS.forEach((crop, i) => {
-    drawCover(ctx, wrapImg, crop, i * sliceW, 0, sliceW + 1, h);
-  });
-}
-
-/** Horizontal forearm from wrap board — outer panels */
-function paintHorizontalPanels(
+/**
+ * Paint the five rotation-angle arm views across the full texture width.
+ *
+ * Paint order starts at view[2] (outer-mid, most-tattooed face) so it maps to
+ * U=0 — the face that greets the user with the default camera position.
+ * Order: 2 → 3 → 4 → 0 → 1 (wraps seamlessly).
+ *
+ * Each arm photo is oriented wrist=bottom / elbow=top in the reference image.
+ * We need wrist at canvas TOP (V=0), so we flip each slice vertically.
+ */
+function paintRotationStrip(
   ctx: CanvasRenderingContext2D,
   wrapImg: HTMLImageElement,
-  w: number,
-  h: number,
+  totalW: number,
+  totalH: number,
 ) {
-  const panelW = Math.round(w * 0.28);
-  const positions = [0.36, 0.64];
+  const paintOrder = [2, 3, 4, 0, 1];
+  const n   = paintOrder.length;
+  const sliceW = totalW / n;
 
-  positions.forEach((u) => {
+  paintOrder.forEach((viewIdx, paintSlot) => {
+    const crop = WRAP_ROTATION_VIEWS[viewIdx];
+    const dx = Math.round(paintSlot * sliceW);
+    const dw = Math.round((paintSlot + 1) * sliceW) - dx;
+
     const tmp = document.createElement('canvas');
-    tmp.width = panelW;
-    tmp.height = h;
+    tmp.width  = dw;
+    tmp.height = totalH;
     const tctx = tmp.getContext('2d')!;
-    drawCover(tctx, wrapImg, WRAP_HORIZONTAL_FOREARM, 0, 0, panelW, h);
-    extractTattooInk(tctx, 0, 0, panelW, h, 0.9);
-    ctx.globalAlpha = 0.8;
-    ctx.drawImage(tmp, Math.round(u * w - panelW / 2), 0);
+
+    // Flip vertically so wrist(bottom of photo) → top of canvas
+    tctx.save();
+    tctx.translate(0, totalH);
+    tctx.scale(1, -1);
+    tctx.drawImage(wrapImg, crop.x, crop.y, crop.w, crop.h, 0, 0, dw, totalH);
+    tctx.restore();
+
+    extractTattooInk(tctx, 0, 0, dw, totalH, 0.90);
+    ctx.drawImage(tmp, dx, 0);
   });
-  ctx.globalAlpha = 1;
 }
 
-/** Phase progression from story board — inner forearm */
-function paintPhaseProgression(
+// ── Layer B: Story center arm overlay ─────────────────────────────────────
+
+/**
+ * The story board center arm is the highest-quality single source image.
+ * It is painted at U=0.15→0.85 (outer face) with high opacity.
+ *
+ * The photo has birds/mountains at TOP, "BE HERE" at BOTTOM.
+ * We flip it vertically so "BE HERE" maps to canvas TOP (wrist / V=0).
+ */
+function paintStoryCenterArm(
   ctx: CanvasRenderingContext2D,
   storyImg: HTMLImageElement,
-  w: number,
-  h: number,
-  phase: number,
+  totalW: number,
+  totalH: number,
+  opacity: number,
 ) {
-  const p = Math.min(5, Math.max(1, phase));
-  const lo = Math.floor(p) - 1;
-  const hi = Math.min(4, lo + 1);
-  const t = p === Math.floor(p) ? 1 : smoothstep(p - Math.floor(p));
+  const crop   = STORY_CENTER_FOREARM;
+  const uStart = 0.15;
+  const uEnd   = 0.85;
+  const dx = Math.round(uStart * totalW);
+  const dw = Math.round((uEnd - uStart) * totalW);
 
-  const destW = Math.round(w * 0.22);
-  const destX = Math.round(w * 0.02);
+  const tmp = document.createElement('canvas');
+  tmp.width  = dw;
+  tmp.height = totalH;
+  const tctx = tmp.getContext('2d')!;
 
-  const paint = (index: number, alpha: number) => {
-    if (alpha <= 0) return;
-    const tmp = document.createElement('canvas');
-    tmp.width = destW;
-    tmp.height = h;
-    const tctx = tmp.getContext('2d')!;
-    drawCover(tctx, storyImg, STORY_PHASE_ARMS[index], 0, 0, destW, h);
-    extractTattooInk(tctx, 0, 0, destW, h, 1);
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(tmp, destX, 0);
-  };
+  // Flip vertically
+  tctx.save();
+  tctx.translate(0, totalH);
+  tctx.scale(1, -1);
+  tctx.drawImage(storyImg, crop.x, crop.y, crop.w, crop.h, 0, 0, dw, totalH);
+  tctx.restore();
 
-  if (lo === hi || t >= 1) {
-    paint(lo, 0.95);
-  } else {
-    paint(lo, 0.95 * (1 - t));
-    paint(hi, 0.95 * t);
-  }
+  extractTattooInk(tctx, 0, 0, dw, totalH, 1.0);
+
+  ctx.globalAlpha = opacity;
+  ctx.drawImage(tmp, dx, 0);
   ctx.globalAlpha = 1;
 }
+
+// ── Main export ────────────────────────────────────────────────────────────
 
 export async function buildReferenceTattooTexture(
   phase: number,
   shading: ShadingMode,
-  showGhost: boolean,
+  _showGhost: boolean,
 ): Promise<THREE.CanvasTexture> {
-  const key = `ref-v3-${phase.toFixed(2)}-${shading}-${showGhost}`;
+  const key = `ref-v5-${phase.toFixed(2)}-${shading}`;
   if (cacheTexture && cacheKey === key) return cacheTexture;
 
   const { wrap, story } = await loadReferenceImages();
 
   const canvas = document.createElement('canvas');
-  canvas.width = TEXTURE_WIDTH;
+  canvas.width  = CANVAS_W;
   canvas.height = CANVAS_H;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Layer A — rotation strip (base, full 360° coverage)
+  paintRotationStrip(ctx, wrap, CANVAS_W, CANVAS_H);
 
-  buildWrapStrip(ctx, wrap, canvas.width, canvas.height);
-  extractTattooInk(ctx, 0, 0, canvas.width, canvas.height, 1);
+  // Layer B — story-board center arm (high-detail overlay, outer face)
+  paintStoryCenterArm(ctx, story, CANVAS_W, CANVAS_H, 0.88);
 
-  paintHorizontalPanels(ctx, wrap, canvas.width, canvas.height);
-  paintPhaseProgression(ctx, story, canvas.width, canvas.height, phase);
+  // Phase mask — reveal from wrist upward
+  applyPhaseMask(ctx, CANVAS_W, CANVAS_H, phaseRevealV(phase));
 
-  applyPhaseMask(ctx, canvas.width, canvas.height, phaseRevealV(phase));
-  applyShadingToInk(ctx, canvas.width, canvas.height, shading);
+  // Shading mode
+  applyShadingToInk(ctx, CANVAS_W, CANVAS_H, shading);
 
+  // ── Build Three.js texture ─────────────────────────────────────────────
   if (cacheTexture) cacheTexture.dispose();
 
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.flipY = false;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.anisotropy = 16;
+  texture.colorSpace  = THREE.SRGBColorSpace;
+  texture.flipY       = false;
+  texture.wrapS       = THREE.ClampToEdgeWrapping;
+  texture.wrapT       = THREE.ClampToEdgeWrapping;
+  texture.anisotropy  = 16;
   texture.needsUpdate = true;
 
-  cacheKey = key;
+  cacheKey     = key;
   cacheTexture = texture;
   return texture;
 }

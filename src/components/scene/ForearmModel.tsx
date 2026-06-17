@@ -15,19 +15,26 @@ import {
 } from './forearmGeometry';
 import { HandModel } from './HandModel';
 
+/**
+ * Multi-octave normal map: large-scale skin creases + fine pore noise.
+ */
 function createSkinNormalMap(): THREE.CanvasTexture {
-  const size = 128;
+  const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
   const img = ctx.createImageData(size, size);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const n = 128 + (Math.random() - 0.5) * 18;
-    img.data[i] = n;
-    img.data[i + 1] = n;
-    img.data[i + 2] = 255;
-    img.data[i + 3] = 255;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const lo = (Math.random() - 0.5) * 14;  // low-freq crease
+      const hi = (Math.random() - 0.5) * 30;  // high-freq pore
+      const n = Math.max(0, Math.min(255, 128 + lo + hi * 0.4));
+      img.data[i] = img.data[i + 1] = Math.round(n);
+      img.data[i + 2] = 255;
+      img.data[i + 3] = 255;
+    }
   }
   ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(canvas);
@@ -38,13 +45,14 @@ function createSkinNormalMap(): THREE.CanvasTexture {
 export function useSkinMaterial(): THREE.MeshStandardMaterial {
   return useMemo(() => {
     const normalMap = createSkinNormalMap();
-    normalMap.repeat.set(4, 8);
+    normalMap.repeat.set(6, 12);
     return new THREE.MeshStandardMaterial({
-      color: '#c9a88a',
-      roughness: 0.65,
-      metalness: 0.02,
+      color: '#c4956e',     // warmer medium skin, reads well under warm key light
+      roughness: 0.72,
+      metalness: 0.0,
       normalMap,
-      normalScale: new THREE.Vector2(0.15, 0.15),
+      normalScale: new THREE.Vector2(0.22, 0.22),
+      envMapIntensity: 0.6,
       side: THREE.FrontSide,
     });
   }, []);
@@ -62,14 +70,17 @@ export function ForearmModel({ tattooTexture }: ForearmModelProps) {
 
   const tattooMaterial = useMemo(
     () =>
-      new THREE.MeshBasicMaterial({
+      new THREE.MeshStandardMaterial({
         map: tattooTexture,
         transparent: true,
-        alphaTest: 0.06,
-        depthWrite: true,
+        alphaTest: 0.05,
+        depthWrite: false,   // avoid z-fighting with skin
         depthTest: true,
         side: THREE.FrontSide,
-        toneMapped: false,
+        roughness: 0.85,     // ink sits slightly matte in skin
+        metalness: 0.0,
+        envMapIntensity: 0.3,
+        toneMapped: true,
       }),
     [tattooTexture],
   );
